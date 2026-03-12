@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Todo App</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
+        .task-list { list-style: none; padding: 0; }
+        .task-item { border: 1px solid #ddd; padding: 10px; margin: 5px 0; display: flex; align-items: flex-start; }
+        .task-item.completed { text-decoration: line-through; color: #888; }
+        .task-item input[type="checkbox"] { margin-right: 10px; margin-top: 4px; }
+        .task-content { flex: 1; }
+        .task-content h3 { margin: 0 0 5px 0; }
+        .task-content p { margin: 0; color: #666; }
+        .task-actions { display: flex; gap: 5px; }
+        .task-actions button { padding: 5px 10px; cursor: pointer; border: 1px solid #ccc; background: #f8f9fa; border-radius: 4px; }
+        .task-actions button:hover { background: #e9ecef; }
+        form { margin: 20px 0; padding: 15px; background: #f8f9fa; border-radius: 5px; }
+        .form-group { margin-bottom: 10px; }
+        .form-group label { display: block; margin-bottom: 5px; font-weight: bold; }
+        .form-group input, .form-group textarea { width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; }
+        .form-group textarea { height: 60px; resize: vertical; }
+        .char-count { font-size: 12px; color: #666; text-align: right; margin-top: 2px; }
+        .char-count.warning { color: #ffc107; }
+        .char-count.error { color: #dc3545; }
+        .error-message { color: #dc3545; font-size: 14px; margin-top: 5px; }
+        button[type="submit"] { padding: 10px 20px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; }
+        button[type="submit"]:hover { background: #0056b3; }
+        button[type="submit"]:disabled { background: #6c757d; cursor: not-allowed; }
+        .filters { margin-bottom: 15px; }
+        .filters button { margin-right: 5px; }
+        .filter-active { background: #007bff; color: white; border-color: #007bff; }
+        .alert { padding: 10px; margin: 10px 0; border-radius: 4px; }
+        .alert-error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .alert-success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+
+        /* Responsive design */
+        @media (max-width: 768px) {
+            body { padding: 10px; max-width: 100%; }
+            .task-item { flex-direction: column; gap: 8px; }
+            .task-item input[type="checkbox"] { margin-right: 0; margin-bottom: 5px; }
+            .task-actions { width: 100%; justify-content: flex-start; }
+            .task-actions button { padding: 8px 12px; min-height: 44px; }
+            .filters button { margin-right: 8px; margin-bottom: 5px; }
+            .form-group input, .form-group textarea { font-size: 16px; padding: 10px; }
+            button[type="submit"] { width: 100%; min-height: 44px; padding: 12px; font-size: 16px; }
+        }
+
+        @media (max-width: 480px) {
+            body { padding: 8px; }
+            .task-content h3 { font-size: 16px; }
+            .task-content p { font-size: 14px; }
+            .form-group label { font-size: 14px; }
+        }
+    </style>
+</head>
+<body>
+    <h1>Todo App</h1>
+    <div id="alertArea"></div>
+    <form id="addTaskForm">
+        <div class="form-group">
+            <label for="title">Task Title *</label>
+            <input type="text" id="title" placeholder="Enter task title" maxlength="200" required>
+            <div class="char-count" id="titleCount">0/200</div>
+            <div class="error-message" id="titleError"></div>
+        </div>
+        <div class="form-group">
+            <label for="description">Description (optional)</label>
+            <textarea id="description" placeholder="Enter description" maxlength="1000"></textarea>
+            <div class="char-count" id="descCount">0/1000</div>
+        </div>
+        <button type="submit" id="submitBtn">Add Task</button>
+    </form>
+    <div class="filters">
+        <button id="filterAll" class="filter-active" onclick="setFilter('all')">All</button>
+        <button id="filterActive" onclick="setFilter('active')">Active</button>
+        <button id="filterCompleted" onclick="setFilter('completed')">Completed</button>
+    </div>
+    <ul id="taskList" class="task-list"></ul>
+    <script>
+        let currentFilter = 'all';
+        const MAX_TITLE_LENGTH = 200;
+        const MAX_DESC_LENGTH = 1000;
+
+        function showAlert(message, type = 'error') {
+            const alertArea = document.getElementById('alertArea');
+            alertArea.innerHTML = `<div class="alert alert-${type}">${escapeHtml(message)}</div>`;
+            setTimeout(() => alertArea.innerHTML = '', 5000);
+        }
+
+        function updateCharCount(inputId, countId, maxLength) {
+            const input = document.getElementById(inputId);
+            const count = document.getElementById(countId);
+            const length = input.value.length;
+            count.textContent = `${length}/${maxLength}`;
+            count.classList.remove('warning', 'error');
+            if (length > maxLength * 0.9) {
+                count.classList.add('warning');
+            }
+            if (length >= maxLength) {
+                count.classList.add('error');
+            }
+        }
+
+        function validateForm() {
+            const title = document.getElementById('title');
+            const titleError = document.getElementById('titleError');
+            const description = document.getElementById('description');
+            const submitBtn = document.getElementById('submitBtn');
+            
+            let isValid = true;
+            titleError.textContent = '';
+            
+            if (!title.value.trim()) {
+                titleError.textContent = 'Title is required';
+                title.classList.add('error');
+                isValid = false;
+            } else if (title.value.length > MAX_TITLE_LENGTH) {
+                titleError.textContent = `Title must be ${MAX_TITLE_LENGTH} characters or less`;
+                title.classList.add('error');
+                isValid = false;
+            } else {
+                title.classList.remove('error');
+            }
+            
+            submitBtn.disabled = !isValid;
+            return isValid;
+        }
+
+        async function loadTasks() {
+            try {
+                const res = await fetch(`/tasks?limit=100`);
+                if (!res.ok) {
+                    const data = await res.json().catch(() => ({}));
+                    showAlert(data.error || 'Failed to fetch tasks');
+                    return;
+                }
+                const data = await res.json();
+                const list = document.getElementById('taskList');
+                list.innerHTML = '';
+                let filtered = data;
+                if (currentFilter === 'active') filtered = data.filter(t => !t.completed);
+                if (currentFilter === 'completed') filtered = data.filter(t => t.completed);
+                filtered.forEach(task => {
+                    const li = document.createElement('li');
+                    li.className = 'task-item' + (task.completed ? ' completed' : '');
+                    li.innerHTML = `
+                        <input type="checkbox" ${task.completed ? 'checked' : ''} onchange="toggleTask(${task.id}, this.checked)">
+                        <div class="task-content">
+                            <h3>${escapeHtml(task.title)}</h3>
+                            ${task.description ? `<p>${escapeHtml(task.description)}</p>` : ''}
+                        </div>
+                        <div class="task-actions">
+                            <button onclick="editTask(${task.id}, '${escapeHtml(task.title).replace(/'/g, "\\'")}', '${escapeHtml(task.description || '').replace(/'/g, "\\'")}')">Edit</button>
+                            <button onclick="deleteTask(${task.id})">Delete</button>
+                        </div>
+                    `;
+                    list.appendChild(li);
+                });
+            } catch (err) {
+                showAlert('Network error: ' + err.message);
+            }
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        async function addTask(e) {
+            e.preventDefault();
+            if (!validateForm()) return;
+            
+            const title = document.getElementById('title').value.trim();
+            const description = document.getElementById('description').value.trim();
+            const submitBtn = document.getElementById('submitBtn');
+            
+            submitBtn.disabled = true;
+            try {
+                const res = await fetch('/tasks', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ title, description })
+                });
+                const data = await res.json();
+                if (!res.ok) {
+                    showAlert(data.error || 'Failed to add task');
+                    submitBtn.disabled = false;
+                    return;
+                }
+                showAlert('Task added successfully!', 'success');
+                document.getElementById('addTaskForm').reset();
+                updateCharCount('title', 'titleCount', MAX_TITLE_LENGTH);
+                updateCharCount('description', 'descCount', MAX_DESC_LENGTH);
+                validateForm();
+                loadTasks();
+            } catch (err) {
+                showAlert('Network error: ' + err.message);
+                submitBtn.disabled = false;
+            }
+        }
+
+        async function toggleTask(id, checked) {
+            try {
+                const res = await fetch(`/tasks/${id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ completed: !checked })
+                });
+                if (!res.ok) {
+                    const data = await res.json().catch(() => ({}));
+                    showAlert(data.error || 'Failed to toggle task');
+                    return;
+                }
+            } catch (err) {
+                showAlert('Network error: ' + err.message);
+            }
+        }
+
+        async function deleteTask(id) {
+            if (!confirm('Delete this task?')) return;
+            try {
+                const res = await fetch(`/tasks/${id}`, { method: 'DELETE' });
+                if (!res.ok) {
+                    const data = await res.json().catch(() => ({}));
+                    showAlert(data.error || 'Failed to delete task');
+                    return;
+                }
+                showAlert('Task deleted', 'success');
+                loadTasks();
+            } catch (err) {
+                showAlert('Network error: ' + err.message);
+            }
+        }
+
+        function editTask(id, title, description) {
+            const newTitle = prompt('Edit title:', title);
+            if (newTitle === null) return;
+            const newDescription = prompt('Edit description:', description);
+            fetch(`/tasks/${id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ title: newTitle, description: newDescription })
+            }).then(async (res) => {
+                if (!res.ok) {
+                    const data = await res.json().catch(() => ({}));
+                    showAlert(data.error || 'Failed to update task');
+                    return;
+                }
+                showAlert('Task updated', 'success');
+                loadTasks();
+            }).catch(err => {
+                showAlert('Network error: ' + err.message);
+            });
+        }
+
+        function setFilter(filter) {
+            currentFilter = filter;
+            document.querySelectorAll('.filters button').forEach(btn => btn.classList.remove('filter-active'));
+            document.getElementById('filter' + filter.charAt(0).toUpperCase() + filter.slice(1)).classList.add('filter-active');
+            loadTasks();
+        }
+
+        // Initialize
+        document.getElementById('addTaskForm').addEventListener('submit', addTask);
+        document.getElementById('title').addEventListener('input', () => {
+            updateCharCount('title', 'titleCount', MAX_TITLE_LENGTH);
+            validateForm();
+        });
+        document.getElementById('description').addEventListener('input', () => {
+            updateCharCount('description', 'descCount', MAX_DESC_LENGTH);
+        });
+
+        updateCharCount('title', 'titleCount', MAX_TITLE_LENGTH);
+        updateCharCount('description', 'descCount', MAX_DESC_LENGTH);
+        loadTasks();
+    </script>
+</body>
+</html>

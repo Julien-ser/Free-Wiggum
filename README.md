@@ -1,30 +1,71 @@
 
 
-# 🕵️‍♂️ Free Wiggum: Zero-Cost Autonomous Agent Loop
+# 🤖 Autonomous AI Task Loop with OpenCode
 
 Run autonomous AI task loops **completely free.** No subscriptions. No API bills. No infrastructure costs.
 
-While CrewAI, AutoGPT, and Claude API cost **$200-500+/month**, Free Wiggum uses [Aider](https://aider.chat) with OpenRouter's free models to build, test, and deploy autonomous agents on your own machine for **$0**.
+While CrewAI, AutoGPT, and Claude API cost **$200-500+/month**, this setup uses [OpenCode](https://github.com/ripienaar/opencode) with OpenRouter's free models to build autonomous agents on your own machine for **$0**.
 
-This is a lightweight, recursive bash-driven agent that uses free LLM access to work through task lists methodically and loop until completion.
+This is a lightweight, recursive bash-driven loop that uses free LLM access to work through task lists methodically until completion.
 
 ## 🛠 Prerequisites
 
-- **Python 3.12** (Mandatory: Aider is not yet compatible with Python 3.13+)
+- **OpenCode AI** (`npm i -g opencode-ai`)
+- **GitHub CLI** (`gh`) — Required for authentication bypass (avoids broken OAuth handshake)
 - **OpenRouter API Key** (Free tier available at [openrouter.ai](https://openrouter.ai))
 - **Linux/macOS/Windows with bash** (Git Bash on Windows works fine)
+
+## 📋 System Setup
+
+### Step 1: Install OpenCode AI
+
+```bash
+npm i -g opencode-ai
+```
+
+### Step 2: Authenticate with GitHub CLI
+
+Use the GitHub CLI to establish a persistent session that OpenCode borrows:
+
+```bash
+gh auth login
+```
+
+Choose **Device Code** flow when prompted. This avoids the broken OAuth browser handshake and creates a system-level authentication that OpenCode automatically uses.
+
+### Step 3: Set OpenRouter API Key & Token Limits
+
+Add your OpenRouter API key and token management settings to `.env` in your project directory:
+
+```
+OPENROUTER_API_KEY=sk-or-v1-...
+WIGGUM_MODEL=openrouter/stepfun/step-3.5-flash:free
+
+# Pre-emptive Token Management (Critical for long-running loops)
+# Forces OpenCode to truncate responses at 32k tokens, leaving 32k for input context (total 64k budget)
+OPENCODE_EXPERIMENTAL_OUTPUT_TOKEN_MAX=32000
+```
+
+**Token Management Explained:**
+- **OPENCODE_EXPERIMENTAL_OUTPUT_TOKEN_MAX=32000** — Prevents context bloat by capping each OpenCode response at 32k tokens
+- Leaves 32k tokens for input prompts (tasks, context, AGENTS.md)
+- Total budget: 64k tokens per iteration (the Wiggum rule)
+- When limit is reached, the loop automatically resets and continues fresh
+- Prevents model degradation after long sessions
+
+The `wiggum.sh` script loads this automatically at startup.
 
 ## 💰 Cost Comparison
 
 | Tool | Monthly Cost | Setup | Model Quality |
 |------|-------------|-------|---------------|
-| **Free Wiggum** | **$0** | 5 minutes | Excellent (Gemini, Qwen, Step) |
+| **This Setup** | **$0** | 5 minutes | Excellent (Gemini, Qwen, Step) |
 | Claude API | $20-600+ | Easy | Excellent |
 | CrewAI + GPT-4 | $400+ | Medium | Excellent |
 | AutoGPT | $200+ | Complex | Good |
 | AWS SageMaker Agents | $500+ | Hard | Good |
 
-**Free Wiggum uses OpenRouter's free tier**, which provides legitimate, powerful models:
+**This setup uses OpenRouter's free tier**, which provides legitimate, powerful models:
 - **Google Gemini 2.0 Flash** (best overall)
 - **Qwen 3** (excellent for reasoning)
 - **Step 3.5 Flash** (reliable and lightweight)
@@ -32,39 +73,19 @@ This is a lightweight, recursive bash-driven agent that uses free LLM access to 
 1000 agent iterations = **$0.00**. Same iterations on Claude API = **$300+**.
 ## 🚀 Quick Start
 
-### 1. Create the Virtual Environment
-
-Since many systems now default to Python 3.13, you must explicitly target **3.12**:
+### 1. Install Dependencies
 
 ```bash
-# Create and activate the venv
-python3.12 -m venv venv_wiggum
-source venv_wiggum/bin/activate
+# Install OpenCode AI globally
+npm i -g opencode-ai
 
-# Install Aider
-pip install aider-chat
+# Authenticate with GitHub (use Device Code flow)
+gh auth login
 ```
 
-**On Windows (PowerShell):**
-```powershell
-python3.12 -m venv venv_wiggum
-.\venv_wiggum\Scripts\activate
-pip install aider-chat
-```
+### 2. Create Your Project Structure
 
-### 2. Configure Your API Key
-
-Add your OpenRouter API key to a `.env` file in the project directory:
-
-```
-OPENROUTER_API_KEY=your_openrouter_key_here
-```
-
-The script will load this automatically at startup.
-
-### 3. Create the Core Files
-
-You need three files in your project folder for Wiggum to function:
+Create these three core files in your project directory:
 
 **A. TASKS.md** (The Memory)
 
@@ -81,37 +102,60 @@ This tracks the agent's own state. The agent reads this, completes one task at a
 
 **Important:** The script stops when it finds `[x] MISSION ACCOMPLISHED`. Until the agent marks this, the loop continues.
 
-**B. prompt.txt** (The Logic)
+**B. AGENTS.md** (The Brain)
+
+This file is auto-generated by OpenCode and contains project context the agent uses to understand your codebase architecture. Create it by running:
+
+```bash
+opencode .
+```
+
+Then inside the OpenCode interface, type:
+
+```
+/init
+```
+
+This generates `AGENTS.md` which the loop references via `@AGENTS.md` syntax.
+
+**C. prompt.txt** (The Logic)
 
 This is the system instruction sent to the agent on every iteration. It defines the agent's behavior and tells it what to do.
 
 **C. wiggum.sh** (The Engine)
 
-The bash script that drives the loop. See [prompt.txt.sample](prompt.txt.sample) and [TASKS.md.sample](TASKS.md.sample) for examples.
+The bash script that drives the autonomous loop. Copy this repo's `wiggum.sh` and make it executable.
 
-### 4. Launch
+### 3. Create .env File
 
 ```bash
-chmod +x wiggum.sh
-./wiggum.sh
+cat > .env << 'EOF'
+OPENROUTER_API_KEY=sk-or-v1-your_key_here
+WIGGUM_MODEL=openrouter/stepfun/step-3.5-flash:free
+EOF
 ```
+
+### 4. Launch the Loop
 
 ## 📍 How It Works
 
-1. **Initialization**: Activates the Python virtual environment and loads the `.env` file
-2. **Backup**: Creates a backup of TASKS.md before starting (TASKS_original.md)
-3. **Iteration Loop**:
-   - Finds the highest numbered `prompt-*.md` file to resume from the correct iteration
+1. **GitHub Authentication**: Uses persistent `gh cli` session instead of OAuth2 (avoids browser handshake failures)
+2. **Initialization**: Loads `.env` with OpenRouter API key and model selection
+3. **Project Context**: Reads `@AGENTS.md` to understand your codebase structure
+4. **Iteration Loop**:
    - Extracts the FIRST incomplete task (marked with `- [ ]`) from TASKS.md
-   - Builds a dynamic prompt that includes:
-     - Your base instruction from `prompt.txt`
-     - The current TASKS.md contents
-     - The NEXT task to complete
-   - Saves this prompt to `prompt-{iteration}.md` for your records
-   - Runs Aider with the specified OpenRouter model
-   - Verifies that TASKS.md was updated (checks for newly completed tasks)
-   - Checks if `[x] MISSION ACCOMPLISHED` exists
-4. **Completion**: When the goal is reached, summarizes the results and exits
+   - Builds a dynamic prompt containing:
+     - System instructions from `prompt.txt`
+     - Project context from `@AGENTS.md`
+     - Current `TASKS.md` state
+     - The specific task to complete
+   - Saves the complete iteration session to `logs/iteration-{iteration}.md` with formatted output for debugging
+   - Runs `opencode --message "$prompt" --enable-search --yes`:
+     - `--message`: Sends the task directly (non-interactive mode)
+     - `--enable-search`: Enables DuckDuckGo/MCP web search for live documentation
+     - `--yes`: Auto-approves file writes and shell command execution
+   - Waits for OpenCode to complete and update TASKS.md
+5. **Completion**: Checks if `[x] MISSION ACCOMPLISHED` is marked; if so, exits gracefully
 
 ## 🎯 Choosing a Model
 
@@ -126,19 +170,112 @@ To avoid the "yapping" loop (where the model talks but doesn't code), use models
 - `openrouter/arcee-ai/trinity-mini` - Good for agent tasks
 - `openrouter/stepfun/step-3.5-flash:free` - Lightweight and reliable
 
+## 🔍 Token & Context Management
+
+### The 64k Rule
+
+The Wiggum loop operates under a **64k token budget per iteration**:
+
+- **32k tokens** — Maximum output from OpenCode (via `OPENCODE_EXPERIMENTAL_OUTPUT_TOKEN_MAX=32000`)
+- **32k tokens** — Reserved for input context (tasks, AGENTS.md, prompt.txt)
+- **Why:** Models degrade significantly after 64k tokens in a single session
+
+### How It Works
+
+1. **Pre-emptive Capping** — `.env` variable forces OpenCode to truncate responses at 32k
+2. **Soft Guardrails** — Dynamic prompt includes explicit token constraints warning
+3. **Active Monitoring** — Script checks log file size and estimates tokens
+4. **Error Detection** — Loop detects OpenRouter "context_length_exceeded" errors and resets
+5. **Auto-Reset** — When 64k threshold is hit, token counter resets for next iteration
+
+### What Happens at the Limit
+
+- Loop warns: `⚠️ Token limit (64000) reached!`
+- Resets token counter: `🔄 Resetting token counter for next iteration cycle...`
+- Continues with fresh iteration (no context loss, just fresh session)
+- `TASKS.md` tracks all progress, so agent knows what's been done
+
+This prevents the "yapping loop" symptom where models start repeating commands or forgetting the original goal.
+
+OpenCode includes powerful built-in capabilities, automatically enabled via the `wiggum.sh` loop:
+
+### GitHub Integration (via `gh` CLI)
+
+The authentication bridge is already established when you run `gh auth login`:
+
+```bash
+gh auth login
+# Choose: "GitHub.com" → "HTTPS" → "Yes to use git credential" → "Device Code" 
+```
+
+Benefits for your agent:
+- Automatically reads your GitHub context
+- Can push commits to your repositories
+- Access to GitHub Issues and PRs
+- No need for manual Personal Access Tokens
+
+### Code Search (via `--enable-search`)
+
+The `wiggum.sh` script automatically enables search with the `--enable-search` flag:
+
+```bash
+opencode --message "$prompt" --enable-search --yes
+```
+
+This gives OpenCode:
+- **DuckDuckGo web search** via MCP (free, no API key needed)
+- **Codebase semantic search** to find existing implementations
+- **Real-time documentation access** for libraries and tools
+
+The loop uses this to:
+- Find implementation patterns without external paid APIs
+- Avoid code duplication by discovering similar functions
+- Reference external libraries and best practices during execution
+
+### Configuring Search in Your Agent
+
+Add these capabilities to your `prompt.txt`:
+
+```
+You have access to:
+- Web search: Use the search tool to find relevant documentation and examples
+- Code search: Find existing functions before implementing new ones
+- GitHub context: Your repositories and issues are available
+- Execute freely: Use shell commands and write files without asking permission
+```
+
 ## 🔍 Debugging
 
-**Iteration Logs**: Each run creates `prompt-{iteration}.md` files showing the exact prompt sent to the model. These are helpful for understanding why a task failed.
+**Iteration Logs**: All runs are logged to `logs/iteration-{iteration}.md` with formatted markdown containing:
+- The exact prompt sent
+- OpenCode's complete output
+- TASKS.md state after the iteration
 
-**Status Check**: The script prints the number of completed tasks at the end. If it shows `0 / N`, the agent didn't complete anything—check the iteration logs.
+Review these if a task fails.
 
-**Error Log**: If Aider crashes, errors are saved to `ERROR_LOG.txt`.
+**AGENTS.md Issues**: If tasks seem to lack project understanding, regenerate context:
+```bash
+opencode .
+# Inside interface, type: /reinit
+```
+
+**OpenCode Not Executing**: If the AI doesn't write files or run commands, ensure:
+- You're using `--yes` flag (auto-approves execution)
+- `.env` has valid `OPENROUTER_API_KEY`
+- `gh auth login` was successful
+
+**Search Not Working**: 
+- Verify `--enable-search` is in the `wiggum.sh` opencode call
+- Check that `OPENROUTER_API_KEY` is set (search requires API access)
+
+**Loop Stuck**: Check `logs/iteration-*.md` to see what prompt was sent and what OpenCode responded with.
 
 ## ⚠️ Known Issues
 
-- **Python 3.13**: Aider will crash on startup. Use Python 3.12 only.
-- **Login Walls**: Models often hang on login screens. Use `prompt.txt` to instruct the agent to skip authentication.
-- **Stuck Loops**: If no tasks complete, the script warns you. Check `prompt-*.md` logs to see what the model received.
-- **Windows**: Use Git Bash or WSL. PowerShell may have compatibility issues with the bash script.
+- **OAuth Handshake Failures**: Avoided by using `gh auth login` with Device Code flow instead of browser-based OAuth
+- **Login Walls**: Models may hang on login screens; use `prompt.txt` to instruct the agent to skip authentication
+- **Stuck Loops**: If no tasks complete, check `prompt-*.md` logs to see what context the agent received
+- **Windows Compatibility**: Use Git Bash or WSL for full bash script support
+- **Timeout Issues**: If OpenCode takes too long, increase the `sleep 3` duration in `wiggum.sh`
 
 
