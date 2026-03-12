@@ -15,6 +15,25 @@ This is a lightweight, recursive bash-driven loop that uses free LLM access to w
 - **OpenRouter API Key** (Free tier available at [openrouter.ai](https://openrouter.ai))
 - **Linux/macOS/Windows with bash** (Git Bash on Windows works fine)
 
+## 📝 Example Project
+
+**This repository itself is a real example of a project built using the Wiggum loop!**
+
+The [Free-Wiggum](.) folder contains a fully functional **Todo Application** that was built entirely by the autonomous AI agent:
+- **Express.js backend** with SQLite database
+- **Responsive HTML/CSS/JS frontend** with real-time task management
+- **Full test suite** for both backend and database operations
+- **All development tracked** in [TASKS.md](TASKS.md) (17 completed tasks)
+
+Look at [TASKS.md](TASKS.md) to see how the agent tracked every feature from project setup to deployment. This demonstrates exactly how the loop works in practice.
+
+Run it locally:
+```bash
+npm install
+npm start
+# Visit http://localhost:3000
+```
+
 ## 📋 System Setup
 
 ### Step 1: Install OpenCode AI
@@ -85,11 +104,11 @@ gh auth login
 
 ### 2. Create Your Project Structure
 
-Create these three core files in your project directory:
+Create these three core files in your project directory. Use **[TASKStemplate.md](TASKStemplate.md)** as your template for TASKS.md:
 
 **A. TASKS.md** (The Memory)
 
-This tracks the agent's own state. The agent reads this, completes one task at a time, and marks it as done `[x]`.
+This tracks the agent's own state. The agent reads this, completes one task at a time, and marks it as done `[x]`. Start with the structure in [TASKStemplate.md](TASKStemplate.md):
 
 ```markdown
 # Current Tasks

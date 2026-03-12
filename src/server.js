@@ -19,10 +19,8 @@ const PORT = process.env.PORT || 3000;
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Basic route
-app.get('/', (req, res) => {
-  res.send('Welcome to the Todo API');
-});
+// Serve static files first (frontend)
+app.use(express.static(path.join(__dirname, '../public')));
 
 // Task routes
 app.get('/tasks', (req, res) => {
@@ -190,9 +188,6 @@ app.delete('/tasks/:id', (req, res) => {
     res.json({ message: 'Task deleted', id: parseInt(req.params.id) });
   });
 });
-
-// Serve static files (frontend) after API routes
-app.use(express.static(path.join(__dirname, '../public')));
 
 // Start server only if not in test mode
 if (require.main === module) {
